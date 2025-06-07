@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Proses - Penjadwal CPU</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px 0;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px);
+        }
+
+        .input-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .control-group input {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .processes-table {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        td input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        td input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .remove-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .remove-btn:hover {
+            background: #ff3742;
+            transform: scale(1.1);
+        }
+
+        .example-data {
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .example-data h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .simulation-section {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+
+        .alert-info {
+            background: rgba(52, 152, 219, 0.1);
+            border-color: #3498db;
+            color: #2980b9;
+        }
+
+        .alert-warning {
+            background: rgba(241, 196, 15, 0.1);
+            border-color: #f1c40f;
+            color: #d68910;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-group {
+                justify-content: space-between;
+            }
+            
+            table {
+                font-size: 0.9rem;
+            }
+            
+            td input {
+                width: 60px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="back-button">
+        <i class="fas fa-arrow-left"></i> Kembali ke Home
+    </a>
+
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-keyboard"></i> Input Data Proses</h1>
+            <p>Masukkan informasi proses untuk mensimulasikan algoritma penjadwalan CPU</p>
+        </header>
+
+        <div class="input-section">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="quantum">Round Robin Quantum:</label>
+                    <input type="number" id="quantum" value="3" min="1" max="10">
+                </div>
+                <div class="control-group">
+                    <button class="btn btn-primary" onclick="addProcess()">
+                        <i class="fas fa-plus"></i> Tambahkan Proses
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadExampleData()">
+                        <i class="fas fa-magic"></i> Gunakan Data Set
+                    </button>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong><i class="fas fa-info-circle"></i> Petunjuk:</strong>
+                <ul style="margin-top: 10px; padding-left: 20px;">
+                    <li><strong>Arrival Time:</strong> Ketika proses tiba di sistem</li>
+                    <li><strong>Burst Time:</strong> Waktu penggunaan CPU yang dibutuhkan oleh setiap proses</li>
+                    <li><strong>Priority:</strong> Prioritas proses (angka yang lebih rendah = prioritasnya yang lebih tinggi)</li>
+                </ul>
+            </div>
+
+            <div class="processes-table">
+                <table id="processTable">
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Arrival Time</th>
+                            <th>Burst Time</th>
+                            <th>Priority</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="example-data">
+                <h3><i class="fas fa-lightbulb"></i> Contoh Data Set</h3>
+                <p>P1: AT=0, BT=8, Priority=3 | P2: AT=1, BT=4, Priority=1 | P3: AT=2, BT=9, Priority=4 | P4: AT=3, BT=5, Priority=2 | P5: AT=4, BT=2, Priority=5</p>
+            </div>
+
+            <div class="simulation-section">
+                <button class="btn btn-success" onclick="runSimulation()" id="simulateBtn">
+                    <i class="fas fa-play"></i> Jalankan Simulasi
+                </button>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Menjalankan simulasi...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsSection" style="display: none;">
+            <!-- Results will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        let processCount = 0;
+
+        function addProcess() {
+            processCount++;
+            const tbody = document.getElementById('processTableBody');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>P${processCount}</td>
+                <td><input type="number" name="arrival_time" value="0" min="0" required></td>
+                <td><input type="number" name="burst_time" value="1" min="1" required></td>
+                <td><input type="number" name="priority" value="1" min="1" required></td>
+                <td><button class="remove-btn" onclick="removeProcess(this)"><i class="fas fa-times"></i></button></td>
+            `;
+            tbody.appendChild(row);
+        }
+
+        function removeProcess(button) {
+            button.closest('tr').remove();
+        }
+
+        function loadExampleData() {
+            // Clear existing data
+            document.getElementById('processTableBody').innerHTML = '';
+            processCount = 0;
+
+            // Add example processes
+            const exampleData = [
+                {arrival: 0, burst: 8, priority: 3},
+                {arrival: 1, burst: 4, priority: 5},
+                {arrival: 2, burst: 9, priority: 4},
+                {arrival: 3, burst: 5, priority: 2},
+                {arrival: 4, burst: 2, priority: 1}
+            ];
+
+            exampleData.forEach(data => {
+                processCount++;
+                const tbody = document.getElementById('processTableBody');
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>P${processCount}</td>
+                    <td><input type="number" name="arrival_time" value="${data.arrival}" min="0" required></td>
+                    <td><input type="number" name="burst_time" value="${data.burst}" min="1" required></td>
+                    <td><input type="number" name="priority" value="${data.priority}" min="1" required></td>
+                    <td><button class="remove-btn" onclick="removeProcess(this)"><i class="fas fa-times"></i></button></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function runSimulation() {
+            const processes = [];
+            const rows = document.querySelectorAll('#processTableBody tr');
+            
+            if (rows.length === 0) {
+                alert('Please add at least one process before running simulation.');
+                return;
+            }
+
+            // Collect process data
+            rows.forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                processes.push({
+                    arrival_time: parseInt(inputs[0].value),
+                    burst_time: parseInt(inputs[1].value),
+                    priority: parseInt(inputs[2].value)
+                });
+            });
+
+            const quantum = parseInt(document.getElementById('quantum').value);
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('simulateBtn').disabled = true;
+
+            // Send data to server
+            fetch('/simulate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    processes: processes,
+                    quantum: quantum
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('simulateBtn').disabled = false;
+
+                // Display results
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('simulateBtn').disabled = false;
+                alert('An error occurred while running the simulation.');
+            });
+        }
+
+        function displayResults(data) {
+            // Create results page content
+            const resultsHTML = `
+                <div class="input-section">
+                    <h2 style="text-align: center; margin-bottom: 30px; color: #333;">
+                        <i class="fas fa-chart-line"></i> Simulation Results
+                    </h2>
+                    
+                    <!-- Performance Comparison Table -->
+                    <div style="margin-bottom: 40px;">
+                        <h3 style="margin-bottom: 20px; color: #667eea;"><i class="fas fa-balance-scale"></i> Performance Comparison</h3>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; margin-bottom: 0;">
+                                <thead>
+                                    <tr>
+                                        <th>Algorithm</th>
+                                        <th>Avg Waiting Time</th>
+                                        <th>Avg Turnaround Time</th>
+                                        <th>Avg Response Time</th>
+                                        <th>Throughput</th>
+                                        <th>Total Execution Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${Object.values(data.results).map(result => `
+                                        <tr>
+                                            <td style="font-weight: bold; color: #667eea;">${result.algorithm}</td>
+                                            <td>${result.avg_waiting_time}</td>
+                                            <td>${result.avg_turnaround_time}</td>
+                                            <td>${result.avg_response_time}</td>
+                                            <td>${result.throughput}</td>
+                                            <td>${result.total_time}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Gantt Chart -->
+                    <div style="margin-bottom: 40px; text-align: center;">
+                        <h3 style="margin-bottom: 20px; color: #667eea;"><i class="fas fa-chart-bar"></i> Gantt Chart Visualization</h3>
+                        <img src="data:image/png;base64,${data.gantt_chart}" alt="Gantt Chart" style="max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+                    </div>
+
+                    <!-- Detailed Results for each algorithm -->
+                    ${Object.entries(data.results).map(([key, result]) => `
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin-bottom: 15px; color: #667eea;"><i class="fas fa-cog"></i> ${result.algorithm}</h3>
+                            <div style="overflow-x: auto;">
+                                <table style="width: 100%; margin-bottom: 20px;">
+                                    <thead>
+                                        <tr style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                                            <th>PID</th>
+                                            <th>Arrival Time</th>
+                                            <th>Burst Time</th>
+                                            <th>Priority</th>
+                                            <th>Start Time</th>
+                                            <th>Completion Time</th>
+                                            <th>Turnaround Time</th>
+                                            <th>Waiting Time</th>
+                                            <th>Response Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${result.processes.map(process => `
+                                            <tr>
+                                                <td style="font-weight: bold;">P${process.pid}</td>
+                                                <td>${process.arrival_time}</td>
+                                                <td>${process.burst_time}</td>
+                                                <td>${process.priority}</td>
+                                                <td>${process.start_time}</td>
+                                                <td>${process.completion_time}</td>
+                                                <td>${process.turnaround_time}</td>
+                                                <td>${process.waiting_time}</td>
+                                                <td>${process.response_time}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `).join('')}
+
+                    <!-- Best Performance Analysis -->
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 15px; margin-bottom: 30px;">
+                        <h3 style="margin-bottom: 20px; text-align: center;"><i class="fas fa-trophy"></i> Best Performance Analysis</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                            ${(() => {
+                                const algorithms = Object.values(data.results);
+                                const bestWT = algorithms.reduce((a, b) => a.avg_waiting_time < b.avg_waiting_time ? a : b);
+                                const bestTAT = algorithms.reduce((a, b) => a.avg_turnaround_time < b.avg_turnaround_time ? a : b);
+                                const bestRT = algorithms.reduce((a, b) => a.avg_response_time < b.avg_response_time ? a : b);
+                                const bestThroughput = algorithms.reduce((a, b) => a.throughput > b.throughput ? a : b);
+                                
+                                return `
+                                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                                        <strong>Best Avg Waiting Time:</strong><br>
+                                        ${bestWT.algorithm} (${bestWT.avg_waiting_time})
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                                        <strong>Best Avg Turnaround Time:</strong><br>
+                                        ${bestTAT.algorithm} (${bestTAT.avg_turnaround_time})
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                                        <strong>Best Avg Response Time:</strong><br>
+                                        ${bestRT.algorithm} (${bestRT.avg_response_time})
+                                    </div>
+                                    <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
+                                        <strong>Best Throughput:</strong><br>
+                                        ${bestThroughput.algorithm} (${bestThroughput.throughput})
+                                    </div>
+                                `;
+                            })()}
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div style="text-align: center; margin-top: 30px;">
+                        <button class="btn btn-primary" onclick="window.print()" style="margin-right: 15px;">
+                            <i class="fas fa-print"></i> Print Results
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetSimulation()">
+                            <i class="fas fa-redo"></i> New Simulation
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('resultsSection').innerHTML = resultsHTML;
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+
+        function resetSimulation() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('resultsSection').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+
+        // Initialize with one process
+        window.onload = function() {
+            addProcess();
+        };
+    </script>
+</body>
+</html>

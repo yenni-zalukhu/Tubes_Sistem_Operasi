@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hasil Simulasi Penjadwal CPU</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 30px 0;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .back-button {
+            position: fixed;
+            top: 25px;
+            left: 25px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 15px 25px;
+            text-decoration: none;
+            border-radius: 50px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            z-index: 1000;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .back-button:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateX(-5px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .result-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+        }
+
+        .result-card h3 {
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 1.6rem;
+            text-align: center;
+            font-weight: 700;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .metrics-container {
+            display: grid;
+            gap: 15px;
+        }
+
+        .metric-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .metric-item:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            transform: scale(1.02);
+        }
+
+        .metric-label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.95rem;
+        }
+
+        .metric-value {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.1rem;
+            padding: 8px 15px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 20px;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 25px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .section h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 35px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 450px;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        .gantt-section {
+            text-align: center;
+        }
+
+        .gantt-chart {
+            max-width: 100%;
+            height: auto;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            background: white;
+            padding: 15px;
+        }
+
+        .gantt-chart:hover {
+            transform: scale(1.02);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+        }
+
+        .best-performance {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            border-radius: 25px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 20px 40px rgba(79, 172, 254, 0.3);
+        }
+
+        .best-performance h3 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .performance-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .performance-item {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .performance-item:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-5px);
+        }
+
+        .performance-item strong {
+            display: block;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .performance-item .algorithm-name {
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin: 10px 0;
+        }
+
+        .performance-item .metric-val {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .algorithm-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 35px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .tab-button {
+            padding: 15px 30px;
+            border: none;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #666;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .tab-button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        td {
+            padding: 18px;
+            text-align: center;
+            border-bottom: 1px solid #f1f3f4;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        tr:hover td {
+            background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+        }
+
+        .summary-stats {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 20px;
+            padding: 30px;
+            margin-top: 25px;
+        }
+
+        .summary-stats h4 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .stat-item strong {
+            display: block;
+            font-size: 0.9rem;
+            color: #666;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            color: #667eea;
+            font-size: 1.5rem;
+            font-weight: 800;
+        }
+
+        .actions {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .btn {
+            padding: 18px 35px;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 10px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .no-data-message {
+            text-align: center;
+            color: white;
+            margin-top: 100px;
+            padding: 50px;
+        }
+
+        .no-data-message h2 {
+            font-size: 2.5rem;
+            margin-bottom: 25px;
+            font-weight: 700;
+        }
+
+        .no-data-message p {
+            font-size: 1.3rem;
+            margin: 25px 0;
+            opacity: 0.9;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin: 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .gantt-container {
+            width: 100%;
+            overflow-x: auto;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        .gantt-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 800px;
+        }
+
+        .gantt-process {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            height: 40px;
+        }
+
+        .process-label {
+            width: 80px;
+            font-weight: 600;
+            color: #333;
+            text-align: right;
+        }
+
+        .process-timeline {
+            flex: 1;
+            height: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            position: relative;
+            display: flex;
+        }
+
+        .process-block {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .process-block:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .time-scale {
+            display: flex;
+            margin-left: 95px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .time-mark {
+            width: 50px;
+            text-align: center;
+            border-left: 1px solid #ddd;
+            padding-left: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .algorithm-tabs {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .performance-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                margin: 8px;
+                width: calc(100% - 16px);
+                justify-content: center;
+            }
+            
+            .back-button {
+                position: static;
+                margin: 20px auto;
+                display: inline-block;
+            }
+        }
+
+        .fade-in {
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stagger-animation > * {
+            opacity: 0;
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .stagger-animation > *:nth-child(1) { animation-delay: 0.1s; }
+        .stagger-animation > *:nth-child(2) { animation-delay: 0.2s; }
+        .stagger-animation > *:nth-child(3) { animation-delay: 0.3s; }
+        .stagger-animation > *:nth-child(4) { animation-delay: 0.4s; }
+    </style>
+</head>
+<body>
+    <a href="#" class="back-button" onclick="goBack()">
+        <i class="fas fa-arrow-left"></i> Kembali ke Input
+    </a>
+
+    <div class="container">
+        <header class="header fade-in">
+            <h1><i class="fas fa-microchip"></i>Hasil Penjadwal CPU</h1>
+            <p>Analisis Komprehensif Kinerja Algoritma Penjadwalan</p>
+        </header>
+
+        <!-- Quick Performance Overview -->
+        <div class="results-grid stagger-animation" id="performanceOverview">
+            <!-- Will be populated by JavaScript -->
+        </div>
+
+        <!-- Best Performance Summary -->
+        <div class="best-performance fade-in" id="bestPerformance">
+            <h3><i class="fas fa-trophy"></i> Ringkasan Kinerja Terbaik</h3>
+            <div class="performance-grid" id="bestPerformanceGrid">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Performance Comparison Charts -->
+        <div class="section fade-in">
+            <h2><i class="fas fa-chart-line"></i>Perbandingan Kinerja</h2>
+            <div class="chart-container">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Gantt Chart Section -->
+        <div class="section fade-in">
+            <h2><i class="fas fa-calendar-alt"></i>Timeline Eksekusi Proses</h2>
+            <div class="algorithm-tabs" id="ganttTabs">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div id="ganttContent">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Detailed Results Tables -->
+        <div class="section fade-in">
+            <h2><i class="fas fa-table"></i> Informasi Proses Terperinci</h2>
+            <div class="algorithm-tabs" id="detailTabs">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            <div id="detailContent">
+                <!-- Will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions fade-in">
+            <button class="btn btn-primary" onclick="generateReport()">
+                <i class="fas fa-file-pdf"></i> Generate PDF
+            </button>
+            <button class="btn btn-secondary" onclick="exportData()">
+                <i class="fas fa-download"></i> Export Data
+            </button>
+            <button class="btn btn-success" onclick="runNewSimulation()">
+                <i class="fas fa-play"></i> Simulasi Baru
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Sample data for demonstration
+        const sampleData = {
+            processes: [
+                { pid: 'P1', arrivalTime: 0, burstTime: 4, priority: 2 },
+                { pid: 'P2', arrivalTime: 2, burstTime: 3, priority: 5 },
+                { pid: 'P3', arrivalTime: 4, burstTime: 5, priority: 6 },
+                { pid: 'P4', arrivalTime: 5, burstTime: 6, priority: 3 }
+            ],
+            algorithms: ['FCFS', 'SJF', 'Priority', 'Round Robin'],
+            results: {
+                'FCFS': {
+                    avgWaitingTime: 6.25,
+                    avgTurnaroundTime: 10.75,
+                    avgResponseTime: 6.25,
+                    processes: [
+                        { pid: 'P1', startTime: 0, completionTime: 4, turnaroundTime: 4, waitingTime: 0, responseTime: 0 },
+                        { pid: 'P2', startTime: 4, completionTime: 7, turnaroundTime: 5, waitingTime: 2, responseTime: 2 },
+                        { pid: 'P3', startTime: 7, completionTime: 12, turnaroundTime: 8, waitingTime: 3, responseTime: 3 },
+                        { pid: 'P4', startTime: 12, completionTime: 18, turnaroundTime: 13, waitingTime: 7, responseTime: 7 }
+                    ]
+                },
+                'SJF': {
+                    avgWaitingTime: 4.25,
+                    avgTurnaroundTime: 8.75,
+                    avgResponseTime: 4.25,
+                    processes: [
+                        { pid: 'P1', startTime: 0, completionTime: 4, turnaroundTime: 4, waitingTime: 0, responseTime: 0 },
+                        { pid: 'P2', startTime: 4, completionTime: 7, turnaroundTime: 5, waitingTime: 2, responseTime: 2 },
+                        { pid: 'P4', startTime: 7, completionTime: 13, turnaroundTime: 8, waitingTime: 2, responseTime: 2 },
+                        { pid: 'P3', startTime: 13, completionTime: 18, turnaroundTime: 14, waitingTime: 9, responseTime: 9 }
+                    ]
+                },
+                'Priority': {
+                    avgWaitingTime: 3.25,
+                    avgTurnaroundTime: 7.75,
+                    avgResponseTime: 3.25,
+                    processes: [
+                        { pid: 'P1', startTime: 0, completionTime: 4, turnaroundTime: 4, waitingTime: 0, responseTime: 0 },
+                        { pid: 'P4', startTime: 7, completionTime: 13, turnaroundTime: 8, waitingTime: 2, responseTime: 2 },
+                        { pid: 'P2', startTime: 4, completionTime: 7, turnaroundTime: 5, waitingTime: 2, responseTime: 2 },
+                        { pid: 'P3', startTime: 13, completionTime: 18, turnaroundTime: 14, waitingTime: 9, responseTime: 9 }
+                    ]
+                },
+                'Round Robin': {
+                    avgWaitingTime: 5.75,
+                    avgTurnaroundTime: 10.25,
+                    avgResponseTime: 2.25,
+                    timeQuantum: 2,
+                    processes: [
+                        { pid: 'P1', startTime: 0, completionTime: 6, turnaroundTime: 6, waitingTime: 2, responseTime: 0 },
+                        { pid: 'P2', startTime: 2, completionTime: 9, turnaroundTime: 7, waitingTime: 4, responseTime: 0 },
+                        { pid: 'P3', startTime: 4, completionTime: 16, turnaroundTime: 12, waitingTime: 7, responseTime: 0 },
+                        { pid: 'P4', startTime: 6, completionTime: 18, turnaroundTime: 13, waitingTime: 7, responseTime: 1 }
+                    ]
+                }
+            }
+        };
+
+        let performanceChart = null;
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadResults();
+        });
+
+        function loadResults() {
+            try {
+                // Try to load from sessionStorage first, otherwise use sample data
+                let data = sampleData;
+                const savedData = sessionStorage.getItem('schedulerResults');
+                if (savedData) {
+                    data = JSON.parse(savedData);
+                }
+
+                displayPerformanceOverview(data);
+                displayBestPerformance(data);
+                displayPerformanceChart(data);
+                displayGanttCharts(data);
+                displayDetailedTables(data);
+            } catch (error) {
+                console.error('Error loading results:', error);
+                displayNoDataMessage();
+            }
+        }
+
+        function displayPerformanceOverview(data) {
+            const container = document.getElementById('performanceOverview');
+            container.innerHTML = '';
+
+            data.algorithms.forEach(algorithm => {
+                const result = data.results[algorithm];
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.innerHTML = `
+                    <h3>${algorithm}</h3>
+                    <div class="metrics-container">
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Waiting Time</span>
+                            <span class="metric-value">${result.avgWaitingTime.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Turnaround Time</span>
+                            <span class="metric-value">${result.avgTurnaroundTime.toFixed(2)} ms</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="metric-label">Avg Response Time</span>
+                            <span class="metric-value">${result.avgResponseTime.toFixed(2)} ms</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function displayBestPerformance(data) {
+            const container = document.getElementById('bestPerformanceGrid');
+            container.innerHTML = '';
+
+            // Find best algorithms for each metric
+            let bestWaiting = { algorithm: '', value: Infinity };
+            let bestTurnaround = { algorithm: '', value: Infinity };
+            let bestResponse = { algorithm: '', value: Infinity };
+
+            data.algorithms.forEach(algorithm => {
+                const result = data.results[algorithm];
+                if (result.avgWaitingTime < bestWaiting.value) {
+                    bestWaiting = { algorithm, value: result.avgWaitingTime };
+                }
+                if (result.avgTurnaroundTime < bestTurnaround.value) {
+                    bestTurnaround = { algorithm, value: result.avgTurnaroundTime };
+                }
+                if (result.avgResponseTime < bestResponse.value) {
+                    bestResponse = { algorithm, value: result.avgResponseTime };
+                }
+            });
+
+            const metrics = [
+                { title: 'Best Waiting Time', ...bestWaiting, unit: 'ms' },
+                { title: 'Best Turnaround Time', ...bestTurnaround, unit: 'ms' },
+                { title: 'Best Response Time', ...bestResponse, unit: 'ms' }
+            ];
+
+            metrics.forEach(metric => {
+                const item = document.createElement('div');
+                item.className = 'performance-item';
+                item.innerHTML = `
+                    <strong>${metric.title}</strong>
+                    <div class="algorithm-name">${metric.algorithm}</div>
+                    <div class="metric-val">${metric.value.toFixed(2)} ${metric.unit}</div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function displayPerformanceChart(data) {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            
+            if (performanceChart) {
+                performanceChart.destroy();
+            }
+
+            const datasets = [
+                {
+                    label: 'Avg Waiting Time',
+                    data: data.algorithms.map(alg => data.results[alg].avgWaitingTime),
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Avg Turnaround Time',
+                    data: data.algorithms.map(alg => data.results[alg].avgTurnaroundTime),
+                    backgroundColor : 'rgba(79, 172, 254, 0.8)',
+                    borderColor: 'rgba(79, 172, 254, 1)',
+                    borderWidth: 2
+                },
+                {
+                    label: 'Avg Response Time',
+                    data: data.algorithms.map(alg => data.results[alg].avgResponseTime),
+                    backgroundColor: 'rgba(245, 87, 108, 0.8)',
+                    borderColor: 'rgba(245, 87, 108, 1)',
+                    borderWidth: 2
+                }
+            ];
+
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.algorithms,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Algorithm Performance Comparison',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                padding: 20,
+                                font: {
+                                    size: 12,
+                                    weight: '600'
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Time (ms)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Scheduling Algorithms',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+
+        function displayGanttCharts(data) {
+            const tabsContainer = document.getElementById('ganttTabs');
+            const contentContainer = document.getElementById('ganttContent');
+            
+            tabsContainer.innerHTML = '';
+            contentContainer.innerHTML = '';
+
+            data.algorithms.forEach((algorithm, index) => {
+                // Create tab button
+                const tabButton = document.createElement('button');
+                tabButton.className = `tab-button ${index === 0 ? 'active' : ''}`;
+                tabButton.textContent = algorithm;
+                tabButton.onclick = () => showGanttTab(algorithm);
+                tabsContainer.appendChild(tabButton);
+
+                // Create tab content
+                const tabContent = document.createElement('div');
+                tabContent.className = `tab-content ${index === 0 ? 'active' : ''}`;
+                tabContent.id = `gantt-${algorithm}`;
+                tabContent.innerHTML = createGanttChart(data, algorithm);
+                contentContainer.appendChild(tabContent);
+            });
+        }
+
+        function createGanttChart(data, algorithm) {
+            const result = data.results[algorithm];
+            const processes = result.processes;
+            
+            // Calculate total time
+            const maxTime = Math.max(...processes.map(p => p.completionTime));
+            
+            let ganttHTML = `
+                <div class="gantt-container">
+                    <div class="gantt-timeline">
+            `;
+
+            // Create timeline for each process
+            processes.forEach(process => {
+                const startPercent = (process.startTime / maxTime) * 100;
+                const durationPercent = ((process.completionTime - process.startTime) / maxTime) * 100;
+                
+                ganttHTML += `
+                    <div class="gantt-process">
+                        <div class="process-label">${process.pid}</div>
+                        <div class="process-timeline">
+                            <div class="process-block" style="
+                                left: ${startPercent}%;
+                                width: ${durationPercent}%;
+                                background: linear-gradient(135deg, ${getProcessColor(process.pid)});
+                            ">
+                                ${process.startTime}-${process.completionTime}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Add time scale
+            ganttHTML += `
+                    </div>
+                    <div class="time-scale">
+            `;
+            
+            for (let i = 0; i <= maxTime; i += 2) {
+                ganttHTML += `<div class="time-mark">${i}</div>`;
+            }
+            
+            ganttHTML += `
+                    </div>
+                </div>
+            `;
+
+            return ganttHTML;
+        }
+
+        function getProcessColor(pid) {
+            const colors = {
+                'P1': '#667eea, #764ba2',
+                'P2': '#f093fb, #f5576c',
+                'P3': '#4facfe, #00f2fe',
+                'P4': '#43e97b, #38f9d7',
+                'P5': '#fa709a, #fee140'
+            };
+            return colors[pid] || '#667eea, #764ba2';
+        }
+
+        function displayDetailedTables(data) {
+            const tabsContainer = document.getElementById('detailTabs');
+            const contentContainer = document.getElementById('detailContent');
+            
+            tabsContainer.innerHTML = '';
+            contentContainer.innerHTML = '';
+
+            data.algorithms.forEach((algorithm, index) => {
+                // Create tab button
+                const tabButton = document.createElement('button');
+                tabButton.className = `tab-button ${index === 0 ? 'active' : ''}`;
+                tabButton.textContent = algorithm;
+                tabButton.onclick = () => showDetailTab(algorithm);
+                tabsContainer.appendChild(tabButton);
+
+                // Create tab content
+                const tabContent = document.createElement('div');
+                tabContent.className = `tab-content ${index === 0 ? 'active' : ''}`;
+                tabContent.id = `detail-${algorithm}`;
+                tabContent.innerHTML = createDetailTable(data, algorithm);
+                contentContainer.appendChild(tabContent);
+            });
+        }
+
+        function createDetailTable(data, algorithm) {
+            const result = data.results[algorithm];
+            const processes = result.processes;
+            
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Process ID</th>
+                            <th>Arrival Time</th>
+                            <th>Burst Time</th>
+                            <th>Start Time</th>
+                            <th>Completion Time</th>
+                            <th>Turnaround Time</th>
+                            <th>Waiting Time</th>
+                            <th>Response Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            processes.forEach(process => {
+                const originalProcess = data.processes.find(p => p.pid === process.pid);
+                tableHTML += `
+                    <tr>
+                        <td><strong>${process.pid}</strong></td>
+                        <td>${originalProcess.arrivalTime}</td>
+                        <td>${originalProcess.burstTime}</td>
+                        <td>${process.startTime}</td>
+                        <td>${process.completionTime}</td>
+                        <td>${process.turnaroundTime}</td>
+                        <td>${process.waitingTime}</td>
+                        <td>${process.responseTime}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+                <div class="summary-stats">
+                    <h4>Summary Statistics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <strong>Average Waiting Time</strong>
+                            <div class="stat-value">${result.avgWaitingTime.toFixed(2)} ms</div>
+                        </div>
+                        <div class="stat-item">
+                            <strong>Average Turnaround Time</strong>
+                            <div class="stat-value">${result.avgTurnaroundTime.toFixed(2)} ms</div>
+                        </div>
+                        <div class="stat-item">
+                            <strong>Average Response Time</strong>
+                            <div class="stat-value">${result.avgResponseTime.toFixed(2)} ms</div>
+                        </div>
+            `;
+
+            if (result.timeQuantum) {
+                tableHTML += `
+                        <div class="stat-item">
+                            <strong>Time Quantum</strong>
+                            <div class="stat-value">${result.timeQuantum} ms</div>
+                        </div>
+                `;
+            }
+
+            tableHTML += `
+                    </div>
+                </div>
+            `;
+
+            return tableHTML;
+        }
+
+        function showGanttTab(algorithm) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('#ganttTabs .tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('#ganttContent .tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(`gantt-${algorithm}`).classList.add('active');
+        }
+
+        function showDetailTab(algorithm) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('#detailTabs .tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('#detailContent .tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Add active class to selected tab and content
+            event.target.classList.add('active');
+            document.getElementById(`detail-${algorithm}`).classList.add('active');
+        }
+
+        function displayNoDataMessage() {
+            document.querySelector('.container').innerHTML = `
+                <div class="no-data-message">
+                    <h2><i class="fas fa-exclamation-triangle"></i> No Data Available</h2>
+                    <p>No simulation results found. Please run a simulation first.</p>
+                    <div class="loading-spinner"></div>
+                    <button class="btn btn-primary" onclick="runNewSimulation()">
+                        <i class="fas fa-play"></i> Start New Simulation
+                    </button>
+                </div>
+            `;
+        }
+
+        // Action functions
+        function generateReport() {
+            alert('📊 Report generation feature coming soon!\n\nThis will generate a comprehensive PDF report with all simulation results, charts, and analysis.');
+        }
+
+        function exportData() {
+            try {
+                const data = JSON.parse(sessionStorage.getItem('schedulerResults')) || sampleData;
+                const dataStr = JSON.stringify(data, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'cpu_scheduler_results.json';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                alert('📁 Data exported successfully!');
+            } catch (error) {
+                alert('❌ Error exporting data: ' + error.message);
+            }
+        }
+
+        function runNewSimulation() {
+            if (confirm('🔄 Start a new simulation?\n\nThis will clear current results and return to the input page.')) {
+                sessionStorage.removeItem('schedulerResults');
+                // In a real application, this would navigate to the input page
+                window.location.href = 'index.html';
+            }
+        }
+
+        function goBack() {
+            // In a real application, this would navigate back
+            if (confirm('🔙 Return to input page?\n\nCurrent results will be saved for later viewing.')) {
+                window.location.href = 'index.html';
+            }
+        }
+
+        // Add some interactive features
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add hover effects to cards
+            const cards = document.querySelectorAll('.result-card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-10px) scale(1.02)';
+                });
+                
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            // Add click-to-copy functionality for metrics
+            const metricValues = document.querySelectorAll('.metric-value');
+            metricValues.forEach(metric => {
+                metric.addEventListener('click', function() {
+                    const text = this.textContent;
+                    navigator.clipboard.writeText(text).then(() => {
+                        const originalText = this.textContent;
+                        this.textContent = 'Copied!';
+                        this.style.background = 'rgba(67, 233, 123, 0.2)';
+                        setTimeout(() => {
+                            this.textContent = originalText;
+                            this.style.background = 'rgba(102, 126, 234, 0.1)';
+                        }, 1000);
+                    });
+                });
+            });
+
+            // Add keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    goBack();
+                } else if (e.key === 'Enter' && e.ctrlKey) {
+                    runNewSimulation();
+                } else if (e.key === 's' && e.ctrlKey) {
+                    e.preventDefault();
+                    exportData();
+                }
+            });
+        });
+
+        // Add scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all sections for scroll animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const sections = document.querySelectorAll('.section, .result-card, .best-performance');
+            sections.forEach(section => {
+                section.style.opacity = '0';
+                section.style.transform = 'translateY(30px)';
+                section.style.transition = 'all 0.6s ease-out';
+                observer.observe(section);
+            });
+        });
+
+        // Add real-time clock
+        function updateClock() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            const clockElement = document.querySelector('.clock');
+            if (clockElement) {
+                clockElement.textContent = timeString;
+            }
+        }
+
+        // Update clock every second
+        setInterval(updateClock, 1000);
+
+        // Add performance monitoring
+        window.addEventListener('load', function() {
+            const loadTime = performance.now();
+            console.log(`Page loaded in ${loadTime.toFixed(2)}ms`);
+            
+            // Add load time to page
+            const footer = document.querySelector('.container');
+            if (footer) {
+                const loadInfo = document.createElement('div');
+                loadInfo.style.cssText = `
+                    text-align: center;
+                    color: rgba(255,255,255,0.7);
+                    font-size: 0.9rem;
+                    margin-top: 20px;
+                    padding: 20px;
+                `;
+                loadInfo.innerHTML = `
+                    <i class="fas fa-clock"></i> Page loaded in ${loadTime.toFixed(2)}ms | 
+                    <span class="clock">${new Date().toLocaleTimeString()}</span>
+                `;
+                footer.appendChild(loadInfo);
+            }
+        });
+    </script>
+</body>
+</html>
