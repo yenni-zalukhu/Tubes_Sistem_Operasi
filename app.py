@@ -5,9 +5,281 @@ import io
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from tubes1 import CPUScheduler, Process
+from copy import deepcopy
+from typing import List, Dict
 
 app = Flask(__name__)
+
+class Process:
+    def __init__(self, pid: int, arrival_time: int, burst_time: int, priority: int = 0):
+        self.pid = pid
+        self.arrival_time = arrival_time
+        self.arrival = arrival_time  # Alias untuk kompatibilitas
+        self.burst_time = burst_time
+        self.burst = burst_time  # Alias untuk kompatibilitas
+        self.priority = priority
+        self.remaining_time = burst_time
+        self.remaining = burst_time  # Alias untuk kompatibilitas
+        self.completion_time = 0
+        self.turnaround_time = 0
+        self.waiting_time = 0
+        self.response_time = -1
+        self.start_time = -1
+
+    def __str__(self):
+        return f"P{self.pid}(AT:{self.arrival_time}, BT:{self.burst_time}, Priority:{self.priority})"
+
+class CPUScheduler:
+    def __init__(self):
+        self.processes = []
+    
+    def add_process(self, pid: int, arrival_time: int, burst_time: int, priority: int = 0):
+        """Menambahkan proses baru ke dalam scheduler"""
+        process = Process(pid, arrival_time, burst_time, priority)
+        self.processes.append(process)
+    
+    def reset_processes(self):
+        """Reset semua proses ke kondisi awal"""
+        for process in self.processes:
+            process.remaining_time = process.burst_time
+            process.remaining = process.burst_time
+            process.completion_time = 0
+            process.turnaround_time = 0
+            process.waiting_time = 0
+            process.response_time = -1
+            process.start_time = -1
+    
+    def _calculate_times(self, processes: List[Process]) -> List[Process]:
+        """Menghitung waktu turnaround, waiting, dan response untuk semua proses"""
+        for process in processes:
+            process.turnaround_time = process.completion_time - process.arrival_time
+            process.waiting_time = process.turnaround_time - process.burst_time
+            if process.response_time == -1:
+                process.response_time = process.start_time - process.arrival_time
+        return processes
+    
+    def fcfs_scheduling(self) -> Dict:
+        """First Come First Served Scheduling - Fixed Implementation"""
+        self.reset_processes()
+        processes = deepcopy(self.processes)
+        processes.sort(key=lambda p: p.arrival_time)
+        
+        current_time = 0
+        gantt = []
+        
+        for process in processes:
+            # Jika CPU idle, loncat ke waktu kedatangan proses
+            if current_time < process.arrival_time:
+                current_time = process.arrival_time
+            
+            process.start_time = current_time
+            process.response_time = current_time - process.arrival_time
+            
+            gantt.append({
+                'pid': process.pid,
+                'start': current_time,
+                'duration': process.burst_time
+            })
+            
+            current_time += process.burst_time
+            process.completion_time = current_time
+        
+        # Hitung times
+        processes = self._calculate_times(processes)
+        return self._calculate_metrics(processes, "FCFS", gantt)
+    
+    def sjf_scheduling(self) -> Dict:
+        """Shortest Job First (Non-preemptive) Scheduling - Fixed Implementation"""
+        self.reset_processes()
+        processes = deepcopy(self.processes)
+        processes.sort(key=lambda p: (p.arrival_time, p.burst_time))
+        
+        completed = 0
+        current_time = 0
+        ready_queue = []
+        n = len(processes)
+        idx = 0
+        result = []
+        gantt = []
+
+        while completed < n:
+            # Tambahkan proses yang sudah tiba ke ready queue
+            while idx < n and processes[idx].arrival_time <= current_time:
+                ready_queue.append(processes[idx])
+                idx += 1
+            
+            if ready_queue:
+                # Pilih proses dengan burst time terpendek
+                ready_queue.sort(key=lambda p: (p.burst_time, p.pid))
+                selected_process = ready_queue.pop(0)
+                
+                selected_process.start_time = current_time
+                gantt.append({
+                    'pid': selected_process.pid,
+                    'start': current_time,
+                    'duration': selected_process.burst_time
+                })
+                
+                current_time += selected_process.burst_time
+                selected_process.completion_time = current_time
+                result.append(selected_process)
+                completed += 1
+            else:
+                # CPU idle, loncat ke waktu kedatangan proses berikutnya
+                if idx < n:
+                    current_time = processes[idx].arrival_time
+        
+        # Hitung times
+        result = self._calculate_times(result)
+        return self._calculate_metrics(result, "SJF", gantt)
+    
+    def round_robin_scheduling(self, quantum: int = 2) -> Dict:
+        """Round Robin Scheduling - Fixed Implementation"""
+        self.reset_processes()
+        processes = deepcopy(self.processes)
+        
+        queue = []
+        time = 0
+        n = len(processes)
+        completed = 0
+        idx = 0
+        result = []
+        visited = [False] * n
+        gantt = []
+
+        # Sort processes by arrival time for proper processing
+        processes.sort(key=lambda p: p.arrival_time)
+
+        while completed < n:
+            # Add newly arrived processes to queue
+            while idx < n and processes[idx].arrival_time <= time:
+                if not visited[idx]:
+                    queue.append(processes[idx])
+                    visited[idx] = True
+                idx += 1
+
+            if queue:
+                current_process = queue.pop(0)
+                
+                # Set start time and response time for first execution
+                if current_process.start_time == -1:
+                    current_process.start_time = time
+                
+                # Execute for quantum time or remaining time
+                exec_time = min(quantum, current_process.remaining_time)
+                gantt.append({
+                    'pid': current_process.pid,
+                    'start': time,
+                    'duration': exec_time
+                })
+                
+                time += exec_time
+                current_process.remaining_time -= exec_time
+                
+                # Add newly arrived processes after execution
+                while idx < n and processes[idx].arrival_time <= time:
+                    if not visited[idx]:
+                        queue.append(processes[idx])
+                        visited[idx] = True
+                    idx += 1
+                
+                # Check if process is completed
+                if current_process.remaining_time > 0:
+                    queue.append(current_process)  # Put back in queue
+                else:
+                    current_process.completion_time = time
+                    result.append(current_process)
+                    completed += 1
+            else:
+                # CPU idle, advance time
+                time += 1
+        
+        # Hitung times
+        result = self._calculate_times(result)
+        return self._calculate_metrics(result, f"Round Robin (Quantum={quantum})", gantt)
+    
+    def priority_scheduling(self) -> Dict:
+        """Priority Scheduling (Non-preemptive) - Fixed Implementation"""
+        self.reset_processes()
+        processes = deepcopy(self.processes)
+        processes.sort(key=lambda p: (p.arrival_time, p.priority))
+        
+        completed = 0
+        current_time = 0
+        ready_queue = []
+        idx = 0
+        result = []
+        n = len(processes)
+        gantt = []
+
+        while completed < n:
+            # Tambahkan proses yang sudah tiba ke ready queue
+            while idx < n and processes[idx].arrival_time <= current_time:
+                ready_queue.append(processes[idx])
+                idx += 1
+            
+            if ready_queue:
+                # Pilih proses dengan prioritas tertinggi (nilai terkecil)
+                ready_queue.sort(key=lambda p: (p.priority, p.pid))
+                selected_process = ready_queue.pop(0)
+                
+                selected_process.start_time = current_time
+                gantt.append({
+                    'pid': selected_process.pid,
+                    'start': current_time,
+                    'duration': selected_process.burst_time
+                })
+                
+                current_time += selected_process.burst_time
+                selected_process.completion_time = current_time
+                result.append(selected_process)
+                completed += 1
+            else:
+                # CPU idle, loncat ke waktu kedatangan proses berikutnya
+                if idx < n:
+                    current_time = processes[idx].arrival_time
+        
+        # Hitung times
+        result = self._calculate_times(result)
+        return self._calculate_metrics(result, "Priority Scheduling", gantt)
+    
+    def _calculate_metrics(self, processes: List[Process], algorithm_name: str, gantt: List[Dict]) -> Dict:
+        """Menghitung metrik kinerja"""
+        if not processes:
+            return {
+                'algorithm': algorithm_name,
+                'processes': [],
+                'avg_waiting_time': 0,
+                'avg_turnaround_time': 0,
+                'avg_response_time': 0,
+                'throughput': 0,
+                'total_time': 0,
+                'gantt': []
+            }
+        
+        total_waiting_time = sum(p.waiting_time for p in processes)
+        total_turnaround_time = sum(p.turnaround_time for p in processes)
+        total_response_time = sum(p.response_time for p in processes)
+        
+        avg_waiting_time = total_waiting_time / len(processes)
+        avg_turnaround_time = total_turnaround_time / len(processes)
+        avg_response_time = total_response_time / len(processes)
+        
+        # Throughput = jumlah proses / total waktu eksekusi
+        total_time = max(p.completion_time for p in processes)
+        min_arrival = min(p.arrival_time for p in processes)
+        throughput = len(processes) / (total_time - min_arrival) if (total_time - min_arrival) > 0 else 0
+        
+        return {
+            'algorithm': algorithm_name,
+            'processes': processes,
+            'avg_waiting_time': avg_waiting_time,
+            'avg_turnaround_time': avg_turnaround_time,
+            'avg_response_time': avg_response_time,
+            'throughput': throughput,
+            'total_time': total_time,
+            'gantt': gantt
+        }
 
 @app.route('/')
 def index():
@@ -33,28 +305,25 @@ def simulate():
             int(process['priority'])
         )
     
-    # Run all algorithms and get execution timelines
+    # Run all algorithms
     results = {}
-    timelines = {}
     
     # FCFS
     results['FCFS'] = scheduler.fcfs_scheduling()
-    timelines['FCFS'] = generate_fcfs_timeline(processes)
     
     # SJF
     results['SJF'] = scheduler.sjf_scheduling()
-    timelines['SJF'] = generate_sjf_timeline(processes)
     
     # Round Robin
     results['RR'] = scheduler.round_robin_scheduling(int(quantum))
-    timelines['RR'] = generate_rr_timeline(processes, int(quantum))
     
     # Priority
     results['Priority'] = scheduler.priority_scheduling()
-    timelines['Priority'] = generate_priority_timeline(processes)
     
     # Convert results to JSON-serializable format
     json_results = {}
+    gantt_data = {}
+    
     for algo, result in results.items():
         json_results[algo] = {
             'algorithm': result['algorithm'],
@@ -65,6 +334,8 @@ def simulate():
             'total_time': result['total_time'],
             'processes': []
         }
+        
+        gantt_data[algo] = result['gantt']
         
         for process in result['processes']:
             json_results[algo]['processes'].append({
@@ -79,162 +350,16 @@ def simulate():
                 'response_time': process.response_time
             })
     
-    # Generate improved Gantt chart
-    gantt_chart = generate_improved_gantt_chart(timelines, json_results)
+    # Generate Gantt chart
+    gantt_chart = generate_gantt_chart(gantt_data, json_results)
     
     return jsonify({
         'results': json_results,
         'gantt_chart': gantt_chart
     })
 
-def generate_fcfs_timeline(processes):
-    """Generate FCFS execution timeline"""
-    timeline = []
-    current_time = 0
-    
-    # Sort by arrival time
-    sorted_processes = sorted(enumerate(processes, 1), key=lambda x: x[1]['arrival_time'])
-    
-    for pid, process in sorted_processes:
-        start_time = max(current_time, process['arrival_time'])
-        end_time = start_time + process['burst_time']
-        
-        timeline.append({
-            'pid': pid,
-            'start': start_time,
-            'end': end_time,
-            'duration': process['burst_time']
-        })
-        
-        current_time = end_time
-    
-    return timeline
-
-def generate_sjf_timeline(processes):
-    """Generate SJF (Shortest Job First) execution timeline"""
-    timeline = []
-    current_time = 0
-    remaining_processes = [(i+1, p.copy()) for i, p in enumerate(processes)]
-    
-    while remaining_processes:
-        # Get available processes at current time
-        available = [p for p in remaining_processes if p[1]['arrival_time'] <= current_time]
-        
-        if not available:
-            # Jump to next arrival time
-            current_time = min(p[1]['arrival_time'] for p in remaining_processes)
-            continue
-        
-        # Select shortest job among available
-        selected = min(available, key=lambda x: x[1]['burst_time'])
-        pid, process = selected
-        
-        start_time = current_time
-        end_time = start_time + process['burst_time']
-        
-        timeline.append({
-            'pid': pid,
-            'start': start_time,
-            'end': end_time,
-            'duration': process['burst_time']
-        })
-        
-        current_time = end_time
-        remaining_processes.remove(selected)
-    
-    return timeline
-
-def generate_rr_timeline(processes, quantum):
-    """Generate Round Robin execution timeline"""
-    timeline = []
-    current_time = 0
-    queue = []
-    remaining_processes = {i+1: p['burst_time'] for i, p in enumerate(processes)}
-    arrival_times = {i+1: p['arrival_time'] for i, p in enumerate(processes)}
-    
-    # Add initially available processes to queue
-    for pid in range(1, len(processes) + 1):
-        if arrival_times[pid] <= current_time:
-            queue.append(pid)
-    
-    while queue or any(remaining_processes[pid] > 0 for pid in remaining_processes):
-        # Add newly arrived processes to queue
-        for pid in range(1, len(processes) + 1):
-            if (arrival_times[pid] <= current_time and 
-                remaining_processes[pid] > 0 and 
-                pid not in queue):
-                queue.append(pid)
-        
-        if not queue:
-            # Jump to next arrival time
-            next_arrival = min(arrival_times[pid] for pid in remaining_processes 
-                             if remaining_processes[pid] > 0 and arrival_times[pid] > current_time)
-            current_time = next_arrival
-            continue
-        
-        # Execute current process
-        current_pid = queue.pop(0)
-        execution_time = min(quantum, remaining_processes[current_pid])
-        
-        timeline.append({
-            'pid': current_pid,
-            'start': current_time,
-            'end': current_time + execution_time,
-            'duration': execution_time
-        })
-        
-        current_time += execution_time
-        remaining_processes[current_pid] -= execution_time
-        
-        # Add newly arrived processes
-        for pid in range(1, len(processes) + 1):
-            if (arrival_times[pid] <= current_time and 
-                remaining_processes[pid] > 0 and 
-                pid not in queue and pid != current_pid):
-                queue.append(pid)
-        
-        # Add current process back to queue if not finished
-        if remaining_processes[current_pid] > 0:
-            queue.append(current_pid)
-    
-    return timeline
-
-def generate_priority_timeline(processes):
-    """Generate Priority scheduling execution timeline"""
-    timeline = []
-    current_time = 0
-    remaining_processes = [(i+1, p.copy()) for i, p in enumerate(processes)]
-    
-    while remaining_processes:
-        # Get available processes at current time
-        available = [p for p in remaining_processes if p[1]['arrival_time'] <= current_time]
-        
-        if not available:
-            # Jump to next arrival time
-            current_time = min(p[1]['arrival_time'] for p in remaining_processes)
-            continue
-        
-        # Select highest priority (lowest priority number) among available
-        selected = min(available, key=lambda x: x[1]['priority'])
-        pid, process = selected
-        
-        start_time = current_time
-        end_time = start_time + process['burst_time']
-        
-        timeline.append({
-            'pid': pid,
-            'start': start_time,
-            'end': end_time,
-            'duration': process['burst_time']
-        })
-        
-        current_time = end_time
-        remaining_processes.remove(selected)
-    
-    return timeline
-
-def generate_improved_gantt_chart(timelines, results):
-    """Generate improved Gantt chart with accurate timelines"""
+def generate_gantt_chart(gantt_data, results):
+    """Generate Gantt chart visualization"""
     fig, axes = plt.subplots(2, 2, figsize=(18, 14))
     fig.suptitle('CPU Scheduling Algorithms - Gantt Charts', fontsize=20, fontweight='bold', y=0.95)
     
@@ -245,17 +370,17 @@ def generate_improved_gantt_chart(timelines, results):
     # Calculate global max time for consistent scaling
     max_time = 0
     for algo in algorithms:
-        if algo in timelines:
-            timeline_max = max(segment['end'] for segment in timelines[algo])
+        if algo in gantt_data and gantt_data[algo]:
+            timeline_max = max(segment['start'] + segment['duration'] for segment in gantt_data[algo])
             max_time = max(max_time, timeline_max)
     
     for i, algo in enumerate(algorithms):
-        if algo in timelines:
+        if algo in gantt_data and gantt_data[algo]:
             ax = axes[positions[i][0]][positions[i][1]]
-            timeline = timelines[algo]
+            gantt = gantt_data[algo]
             
             # Plot Gantt chart segments
-            for segment in timeline:
+            for segment in gantt:
                 color = colors[(segment['pid'] - 1) % len(colors)]
                 
                 # Draw the main bar
@@ -266,13 +391,15 @@ def generate_improved_gantt_chart(timelines, results):
                 ax.text(segment['start'] + segment['duration']/2, 0, 
                        f"P{segment['pid']}", ha='center', va='center', 
                        fontweight='bold', fontsize=11, color='white')
-                
-                # Add time labels at the bottom
-                if segment['start'] == 0 or not any(s['end'] == segment['start'] for s in timeline):
-                    ax.text(segment['start'], -0.5, str(segment['start']), 
-                           ha='center', va='top', fontsize=9, fontweight='bold')
-                
-                ax.text(segment['end'], -0.5, str(segment['end']), 
+            
+            # Add time labels
+            time_points = set()
+            for segment in gantt:
+                time_points.add(segment['start'])
+                time_points.add(segment['start'] + segment['duration'])
+            
+            for time_point in sorted(time_points):
+                ax.text(time_point, -0.5, str(time_point), 
                        ha='center', va='top', fontsize=9, fontweight='bold')
             
             # Customize the subplot
@@ -293,8 +420,9 @@ def generate_improved_gantt_chart(timelines, results):
                    fontsize=10, verticalalignment='top')
             
             # Set consistent x-axis ticks
-            tick_interval = max(1, max_time // 10)
-            ax.set_xticks(range(0, max_time + 1, tick_interval))
+            if max_time > 0:
+                tick_interval = max(1, max_time // 10)
+                ax.set_xticks(range(0, max_time + 1, tick_interval))
     
     # Add a legend
     legend_elements = [plt.Rectangle((0,0),1,1, facecolor=colors[i % len(colors)], 
